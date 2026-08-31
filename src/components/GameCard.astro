@@ -1,4 +1,9 @@
 ---
+/**
+ * Presents an individual game as a linkable catalog card.
+ * Filter metadata supports the client-side controls on the static catalog page.
+ */
+
 import type { Game } from '../types/game';
 import Tag from './Tag.astro';
 import ArrowRight from '../assets/icons/arrow-right.svg';
@@ -16,6 +21,8 @@ const { game } = Astro.props;
     data-testid="game-card"
     data-game-id={game.id}
     data-game-title={game.title}
+    data-category-id={game.category?.id}
+    data-publisher-id={game.publisher?.id}
 >
     <div class="p-6 relative">
         <div class="absolute inset-0 bg-gradient-to-r from-blue-600/10 to-purple-600/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>

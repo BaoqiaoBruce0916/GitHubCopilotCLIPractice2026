@@ -134,3 +134,119 @@ test.describe('Game Listing and Navigation', () => {
     });
   });
 });
+
+test.describe('Game Catalog Filtering', () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto('/');
+    await expect(page.getByTestId('games-grid')).toBeVisible();
+  });
+
+  test('should filter games by a single category', async ({ page }) => {
+    const totalCards = await page.getByTestId('game-card').count();
+
+    await test.step('Select the Puzzle category', async () => {
+      await page.getByRole('checkbox', { name: 'Puzzle' }).check();
+    });
+
+    await test.step('Verify only Puzzle games remain visible', async () => {
+      const visibleCards = page.getByTestId('game-card').locator('visible=true');
+      await expect(visibleCards).toHaveCount(4);
+
+      const categoryTags = visibleCards.getByTestId('game-category');
+      const count = await categoryTags.count();
+      for (let i = 0; i < count; i++) {
+        await expect(categoryTags.nth(i)).toHaveText('Puzzle');
+      }
+    });
+
+    await test.step('Verify the result status announces the filtered count', async () => {
+      await expect(page.getByTestId('filter-results-status')).toHaveText(`Showing 4 of ${totalCards} games.`);
+    });
+  });
+
+  test('should match any of multiple selected categories', async ({ page }) => {
+    await test.step('Select two categories', async () => {
+      await page.getByRole('checkbox', { name: 'Puzzle' }).check();
+      await page.getByRole('checkbox', { name: 'Simulation' }).check();
+    });
+
+    await test.step('Verify games from both categories are visible', async () => {
+      const visibleCards = page.getByTestId('game-card').locator('visible=true');
+      await expect(visibleCards).toHaveCount(8);
+
+      const categoryTags = visibleCards.getByTestId('game-category');
+      const texts = await categoryTags.allTextContents();
+      expect(texts.every((text) => text === 'Puzzle' || text === 'Simulation')).toBeTruthy();
+    });
+  });
+
+  test('should filter games by publisher', async ({ page }) => {
+    await test.step('Select a publisher', async () => {
+      await page.getByLabel('Publisher').selectOption({ label: 'GitHub Games' });
+    });
+
+    await test.step('Verify only that publisher\'s games remain visible', async () => {
+      const visibleCards = page.getByTestId('game-card').locator('visible=true');
+      await expect(visibleCards).toHaveCount(5);
+
+      const publisherTags = visibleCards.getByTestId('game-publisher');
+      const texts = await publisherTags.allTextContents();
+      expect(texts.every((text) => text === 'GitHub Games')).toBeTruthy();
+    });
+  });
+
+  test('should combine category and publisher filters', async ({ page }) => {
+    await test.step('Select a category and a publisher', async () => {
+      await page.getByRole('checkbox', { name: 'Action' }).check();
+      await page.getByLabel('Publisher').selectOption({ label: 'CodeForge Studios' });
+    });
+
+    await test.step('Verify only games matching both filters remain visible', async () => {
+      const visibleCards = page.getByTestId('game-card').locator('visible=true');
+      await expect(visibleCards).toHaveCount(2);
+
+      await expect(visibleCards.first().getByTestId('game-category')).toHaveText('Action');
+      await expect(visibleCards.first().getByTestId('game-publisher')).toHaveText('CodeForge Studios');
+    });
+  });
+
+  test('should show a no-results state when no games match the filters', async ({ page }) => {
+    await test.step('Select a category and publisher with no overlapping games', async () => {
+      // Indie Forge only publishes a Strategy game, so pairing it with Puzzle has no matches.
+      await page.getByRole('checkbox', { name: 'Puzzle' }).check();
+      await page.getByLabel('Publisher').selectOption({ label: 'Indie Forge' });
+    });
+
+    await test.step('Verify the no-results state is shown and the grid has no visible cards', async () => {
+      await expect(page.getByTestId('no-results')).toBeVisible();
+      await expect(page.getByTestId('no-results')).toContainText('No games match the selected filters.');
+      await expect(page.getByTestId('game-card').locator('visible=true')).toHaveCount(0);
+    });
+
+    await test.step('Verify the result status announces zero matches', async () => {
+      const totalCards = await page.getByTestId('game-card').count();
+      await expect(page.getByTestId('filter-results-status')).toHaveText(`Showing 0 of ${totalCards} games.`);
+    });
+  });
+
+  test('should reset all filters with the clear filters button', async ({ page }) => {
+    const totalCards = await page.getByTestId('game-card').count();
+
+    await test.step('Apply category and publisher filters', async () => {
+      await page.getByRole('checkbox', { name: 'Puzzle' }).check();
+      await page.getByLabel('Publisher').selectOption({ label: 'GitHub Games' });
+      await expect(page.getByTestId('game-card').locator('visible=true')).toHaveCount(1);
+    });
+
+    await test.step('Click clear filters', async () => {
+      await page.getByRole('button', { name: 'Clear filters' }).click();
+    });
+
+    await test.step('Verify all games are visible again', async () => {
+      await expect(page.getByTestId('game-card').locator('visible=true')).toHaveCount(totalCards);
+      await expect(page.getByRole('checkbox', { name: 'Puzzle' })).not.toBeChecked();
+      await expect(page.getByLabel('Publisher')).toHaveValue('');
+      await expect(page.getByTestId('filter-results-status')).toHaveText(`Showing ${totalCards} of ${totalCards} games.`);
+    });
+  });
+});
